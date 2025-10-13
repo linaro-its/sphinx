@@ -815,6 +815,39 @@ class StandaloneHTMLBuilder(Builder):
                 except Exception as err:
                     logger.warning(__("cannot copy image file '%s': %s"),
                                    self.srcdir / src, err)
+        self.copy_poster_files()
+                    
+    def copy_poster_files(self) -> None:
+        # Search for extra images (like video posters) not handled by self.images
+        logger.info(__('Searching for poster images in: %s'), self.srcdir)
+
+        posters = []
+        static_images_path = Path(self.srcdir) / "_static" / "images"
+
+        if not static_images_path.exists():
+            logger.info(__('No _static/images directory found at %s'), static_images_path)
+            return
+
+        for dirpath, _, filenames in os.walk(static_images_path):
+            for f in filenames:
+                if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+                    full_path = Path(dirpath) / f
+                    rel_path = full_path.relative_to(self.srcdir)
+                    if str(rel_path) not in self.images:  # not already copied
+                        posters.append(full_path)
+
+        if not posters:
+            logger.info(__('No extra images (e.g. posters) found'))
+            return
+
+        ensuredir(self.outdir / self.imagedir)
+        for src in posters:
+            dest = Path(src).relative_to(self.srcdir)
+            try:
+                logger.info(__('Copying poster or extra image: %s'), src)
+                copyfile(src, self.outdir / self.imagedir / dest.name, force=True)
+            except Exception as err:
+                logger.warning(__("Cannot copy poster file '%s': %s"), src, err)
 
     def copy_download_files(self) -> None:
         def to_relpath(f: str) -> str:
